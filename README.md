@@ -1,3 +1,3 @@
-## Flycheck ruby-rubocop-dockerized
+## Flycheck ruby-dockerized-rubocop
 
 Run rubocop under docker container.
