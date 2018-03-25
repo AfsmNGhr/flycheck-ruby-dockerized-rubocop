@@ -73,39 +73,52 @@
   :safe #'stringp
   :package-version '(flycheck . "31"))
 
-;; (flycheck-def-args-var ruby-dockerized-rubocop-args
-    ;; ruby-dockerized-rubocop
-  ;; "Rubocop default ARGS."
-  ;; :initialize '("--display-cop-names"
-                ;; "--force-exclusion"
-                ;; "--format" "emacs"
-                ;; "--cache" "false")
-  ;; :type 'list
-;; :package-version '(flycheck . "31"))
+(flycheck-def-args-var ruby-dockerized-rubocop-args
+    ruby-dockerized-rubocop
+  "Rubocop default ARGS."
+  :initialize '("--display-cop-names"
+                "--force-exclusion"
+                "--format" "emacs"
+                "--cache" "false")
+  :safe #'stringp
+  :type 'list
+  :package-version '(flycheck . "31"))
+
+;;;###autoload
+(defun flycheck-verify-dockerized-rubocop (_checker)
+  "Verify the dockerized rubocop syntax checker."
+  (let ((command (executable-find (ruby-dockerized-rubocop-command))))
+    (list (flycheck-verification-result-new
+           :label "Dockerized rubocop command"
+           :message (if command (format "Found at %s" command) "Not found")
+           :face (if command 'success '(bold error))))))
+
+(defun flycheck-parse-dockerized-rubocop (output checker buffer)
+  (lambda (message)
+    (message output)))
 
 (flycheck-define-checker ruby-dockerized-rubocop
   "Ruby style guide checker using dockerized rubocop."
-  :command ("docker" "exec" "-i" "preset_preset_1"
-            ;; (eval ruby-dockerized-rubocop-container-name)
+  :command ((option ruby-dockerized-rubocop) "exec" "-i"
+            (option ruby-dockerized-rubocop-container-name)
             (eval ruby-dockerized-rubocop-command)
-            "--display-cop-names"
-            "--force-exclusion"
-            "--format" "emacs"
-            "--cache" "true"
+            (option ruby-dockerized-rubocop-args)
             "--config" (eval
                         (concat ruby-dockerized-rubocop-remote-path "/"
                                 dockerized-rubocoprc))
-            source-original)
-  :standard-input t
-  :error-patterns
-  ((info line-start (file-name) ":" line ":" column ": C: "
-         (optional (id (one-or-more (not (any ":")))) ": ") (message) line-end)
-   (warning line-start (file-name) ":" line ":" column ": W: "
-            (optional (id (one-or-more (not (any ":")))) ": ") (message)
-            line-end)
-   (error line-start (file-name) ":" line ":" column ": " (or "E" "F") ": "
-          (optional (id (one-or-more (not (any ":")))) ": ") (message)
-          line-end))
+            "app.rb")
+  ;; :verify #'flycheck-verify-dockerized-rubocop
+  ;; :error-filter (lambda (error) (message error))
+  :error-parser #'flycheck-parse-dockerized-rubocop
+  ;; :error-patterns
+  ;; ((info line-start (file-name) ":" line ":" column ": C: "
+         ;; (optional (id (one-or-more (not (any ":")))) ": ") (message) line-end)
+   ;; (warning line-start (file-name) ":" line ":" column ": W: "
+            ;; (optional (id (one-or-more (not (any ":")))) ": ") (message)
+            ;; line-end)
+   ;; (error line-start (file-name) ":" line ":" column ": " (or "E" "F") ": "
+          ;; (optional (id (one-or-more (not (any ":")))) ": ") (message)
+          ;; line-end))
   :modes (enh-ruby-mode ruby-mode)
   :next-checkers ((warning . ruby-rubocop)))
 
