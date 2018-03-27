@@ -73,53 +73,51 @@
   :safe #'stringp
   :package-version '(flycheck . "31"))
 
-(flycheck-def-args-var ruby-dockerized-rubocop-args
-    ruby-dockerized-rubocop
-  "Rubocop default ARGS."
-  :initialize '("--display-cop-names"
-                "--force-exclusion"
-                "--format" "emacs"
-                "--cache" "false")
-  :safe #'stringp
-  :type 'list
-  :package-version '(flycheck . "31"))
-
-;;;###autoload
-(defun flycheck-verify-dockerized-rubocop (_checker)
-  "Verify the dockerized rubocop syntax checker."
-  (let ((command (executable-find (ruby-dockerized-rubocop-command))))
-    (list (flycheck-verification-result-new
-           :label "Dockerized rubocop command"
-           :message (if command (format "Found at %s" command) "Not found")
-           :face (if command 'success '(bold error))))))
-
-(defun flycheck-parse-dockerized-rubocop (output checker buffer)
-  (lambda (message)
-    (message output)))
-
 (flycheck-define-checker ruby-dockerized-rubocop
   "Ruby style guide checker using dockerized rubocop."
-  :command ((option ruby-dockerized-rubocop) "exec" "-i"
-            (option ruby-dockerized-rubocop-container-name)
+  :command ("docker" "exec" "-i"
+            (eval ruby-dockerized-rubocop-container-name)
             (eval ruby-dockerized-rubocop-command)
-            (option ruby-dockerized-rubocop-args)
+            "--display-cop-names"
+            "--force-exclusion"
+            "--format" "emacs"
+            "--cache" "false"
+            (option-flag "--lint" flycheck-rubocop-lint-only)
             "--config" (eval
-                        (concat ruby-dockerized-rubocop-remote-path "/"
-                                dockerized-rubocoprc))
-            "app.rb")
-  ;; :verify #'flycheck-verify-dockerized-rubocop
-  ;; :error-filter (lambda (error) (message error))
-  :error-parser #'flycheck-parse-dockerized-rubocop
-  ;; :error-patterns
-  ;; ((info line-start (file-name) ":" line ":" column ": C: "
-         ;; (optional (id (one-or-more (not (any ":")))) ": ") (message) line-end)
-   ;; (warning line-start (file-name) ":" line ":" column ": W: "
-            ;; (optional (id (one-or-more (not (any ":")))) ": ") (message)
-            ;; line-end)
-   ;; (error line-start (file-name) ":" line ":" column ": " (or "E" "F") ": "
-          ;; (optional (id (one-or-more (not (any ":")))) ": ") (message)
-          ;; line-end))
+                        (expand-file-name dockerized-rubocoprc
+                                          ruby-dockerized-rubocop-remote-path))
+            (eval
+             (replace-regexp-in-string ruby-dockerized-rubocop-local-path
+                                       ruby-dockerized-rubocop-remote-path
+                                       buffer-file-name)))
+  :working-directory flycheck-ruby--find-project-root
+  ;; :error-filter
+  ;; (lambda (errors)
+    ;; (dolist (error errors)
+      ;; (let ((new-filename (buffer-file-name))
+            ;; (filename (flycheck-error-filename error))
+            ;; (setf (flycheck-error-filename error) new-filename
+                  ;; (flycheck-error-message error)
+                  ;; (replace-regexp-in-string
+                   ;; (regexp-quote filename)
+                   ;; new-filename
+                   ;; (flycheck-error-message error)
+                   ;; nil
+                   ;; t ;; do literal substitution
+                   ;; )))))
+    ;; errors)
+  :error-patterns
+  ((info line-start (file-name) ":" line ":" column ": C: "
+         (optional (id (one-or-more (not (any ":")))) ": ") (message) line-end)
+   (warning line-start (file-name) ":" line ":" column ": W: "
+            (optional (id (one-or-more (not (any ":")))) ": ") (message)
+            line-end)
+   (error line-start (file-name) ":" line ":" column ": " (or "E" "F") ": "
+          (optional (id (one-or-more (not (any ":")))) ": ") (message)
+          line-end))
   :modes (enh-ruby-mode ruby-mode)
-  :next-checkers ((warning . ruby-rubocop)))
+  :next-checkers ((warning . ruby-rubocop)
+                  (warning . ruby-reek)
+                  (warning . ruby-rubylint)))
 
 ;;; flycheck-ruby-dockerized-rubocop.el ends here
